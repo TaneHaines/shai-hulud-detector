@@ -1,6 +1,6 @@
-# Bundle Checker
+# Shai-Hulud Checker
 
-**Bundle Checker** is a Python tool to monitor and inspect JavaScript bundle.js files in your project. It helps maintain manageable bundle sizes and detect potential security issues such as exposed GitHub token prefixes (ghp_, gho_) and suspicious network calls.  
+**Shai-Hulud Checker** is a Python tool to monitor and inspect JavaScript bundle.js files in your project to see if Shai-Hulud has been injected. It helps maintain manageable bundle sizes and detect potential security issues such as exposed GitHub token prefixes (ghp_, gho_) and suspicious network calls.  
 
 ---
 
