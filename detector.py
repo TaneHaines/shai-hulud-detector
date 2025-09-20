@@ -11,6 +11,7 @@ REPO_INFO = "repo_info.txt"
 # Regex for GitHub tokens (ghp_, gho_)
 TOKEN_REGEX = re.compile(r"(gh[po]_)")
 
+"""Maybe do a white list for network calls instead."""
 # Regex for suspicious network calls (fetch/xhr to external domains)
 NETWORK_REGEX = re.compile(r"(fetch|XMLHttpRequest)\([^)]*https?:\/\/", re.IGNORECASE)
 
@@ -40,28 +41,6 @@ def setup():
         sys.exit(1)
 
     return bundle_path
-
-
-def scan_for_filesize(bundle_path):
-    size = os.path.getsize(bundle_path)
-    size_mb = bytes_to_mb(size)
-    print(f"\n{Colors.HEADER}Bundle file: {bundle_path}{Colors.ENDC}  {Colors.OKGREEN}✔{Colors.ENDC}")
-    print(f"{Colors.HEADER}Current bundle size: {size_mb} MB{Colors.ENDC} {Colors.OKGREEN}✔{Colors.ENDC}\n")
-
-    if os.path.exists(bundle_path):
-        with open(bundle_path, "r") as f:
-            old_size = float(f.read().strip())
-        delta = size_mb - old_size
-        if delta > MAX_DELTA_MB:
-            print(f"{Colors.WARNING}Warning: Bundle size increased by {delta:.2f} MB since last check (limit {MAX_DELTA_MB} MB).{Colors.ENDC}")
-        else:
-            print(f"{Colors.OKGREEN}Bundle size growth is within acceptable limit (+{delta:.2f} MB).{Colors.ENDC}")
-    else:
-        print(f"{Colors.OKBLUE}No previous baseline found. Creating baseline for future comparisons.{Colors.ENDC}")
-
-    with open(bundle_path, "w") as f:
-        f.write(str(size_mb))
-
 
 def scan_for_tokens(bundle_path):
     with open(bundle_path, "r", errors="ignore") as f:
@@ -123,8 +102,6 @@ def main():
         bundle_path = setup()
         with open(REPO_INFO, "w") as wf:
             wf.write(bundle_path)
-
-    scan_for_filesize(bundle_path)
     scan_for_tokens(bundle_path)
 
 
