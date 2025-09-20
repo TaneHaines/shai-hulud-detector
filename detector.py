@@ -1,4 +1,3 @@
-# check_bundle_size.py
 import os
 import sys
 import re
@@ -7,15 +6,14 @@ import binascii
 
 MAX_DELTA_MB = 3
 REPO_INFO = "repo_info.txt"
+WHITELIST_FILE = "whitelist.txt"
 
-# Regex for GitHub tokens (ghp_, gho_)
+# Regex for GitHub tokens (ghp_, gho_).
 TOKEN_REGEX = re.compile(r"(gh[po]_)")
 
-"""Maybe do a white list for network calls instead."""
-# Regex for suspicious network calls (fetch/xhr to external domains)
-NETWORK_REGEX = re.compile(r"(fetch|XMLHttpRequest)\([^)]*https?:\/\/", re.IGNORECASE)
+# Regex for suspicious network calls.
+NETWORK_REGEX = re.compile(r"(?:fetch|XMLHttpRequest)\([^)]*?(https?:\/\/[^\s\"')]+)", re.IGNORECASE)
 
-# ANSI colors
 class Colors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -42,12 +40,28 @@ def setup():
 
     return bundle_path
 
-def scan_for_tokens(bundle_path):
+
+def load_whitelist():
+    if not os.path.exists(WHITELIST_FILE):
+        return set()
+    with open(WHITELIST_FILE, "r") as f:
+        return set(line.strip() for line in f if line.strip())
+
+
+def save_whitelist(whitelist):
+    with open(WHITELIST_FILE, "w") as f:
+        for url in sorted(whitelist):
+            f.write(url + "\n")
+
+
+def scan_for_tokens(bundle_path, strict_mode=False):
     with open(bundle_path, "r", errors="ignore") as f:
         text = f.read()
 
     findings = False
+    whitelist = load_whitelist()
 
+    # Check for gh tokens.
     tokens = TOKEN_REGEX.findall(text)
     if tokens:
         findings = True
@@ -55,13 +69,27 @@ def scan_for_tokens(bundle_path):
         for t in tokens:
             print(f"  Detected prefix: {Colors.FAIL}{t}{Colors.ENDC}")
 
+    # Check for suspicious calls.
     suspicious_calls = NETWORK_REGEX.findall(text)
     if suspicious_calls:
-        findings = True
-        print(f"\n{Colors.WARNING}Suspicious network calls detected (may indicate data exfiltration):{Colors.ENDC}")
-        for call in suspicious_calls:
-            print(f"  Call type: {Colors.FAIL}{call}{Colors.ENDC}")
+        print(f"\n{Colors.WARNING}Network calls detected:{Colors.ENDC}")
+        for url in suspicious_calls:
+            if url not in whitelist:
+                findings = True
+                if strict_mode:
+                    print(f"  {Colors.FAIL}Unwhitelisted URL detected (strict mode): {url}{Colors.ENDC}")
+                    sys.exit(1)
+                else:
+                    print(f"  {Colors.FAIL}Unwhitelisted URL detected: {url}{Colors.ENDC}")
+                    choice = input(f"Do you want to add this URL to the whitelist? (y/n): ").strip().lower()
+                    if choice == "y":
+                        whitelist.add(url)
+                        save_whitelist(whitelist)
+                        print(f"{Colors.OKGREEN}Added {url} to whitelist.{Colors.ENDC}")
+            else:
+                print(f"  {Colors.OKGREEN}Whitelisted URL allowed: {url}{Colors.ENDC}")
 
+    # Check for suspicious b64 strings.
     b64_strings = re.findall(r"[A-Za-z0-9+/=]{30,}", text)
     for s in b64_strings:
         try:
@@ -72,6 +100,7 @@ def scan_for_tokens(bundle_path):
         except Exception:
             continue
 
+    # Check for suspicious hex strings
     hex_strings = re.findall(r"(?:[0-9a-fA-F]{2}){10,}", text)
     for s in hex_strings:
         try:
@@ -83,10 +112,12 @@ def scan_for_tokens(bundle_path):
             continue
 
     if not findings:
-        print(f"\n{Colors.OKGREEN}No obvious GitHub token access patterns or suspicious network calls detected.{Colors.ENDC}")
+        print(f"\n{Colors.OKGREEN}No obvious GitHub tokens or unapproved network calls detected.{Colors.ENDC}")
 
 
 def main():
+    strict_mode = "--strict" in sys.argv
+
     if os.path.exists(REPO_INFO):
         with open(REPO_INFO, "r") as f:
             content = f.read().strip()
@@ -102,7 +133,8 @@ def main():
         bundle_path = setup()
         with open(REPO_INFO, "w") as wf:
             wf.write(bundle_path)
-    scan_for_tokens(bundle_path)
+
+    scan_for_tokens(bundle_path, strict_mode)
 
 
 if __name__ == "__main__":
