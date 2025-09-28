@@ -14,6 +14,18 @@ TOKEN_REGEX = re.compile(r"(gh[po]_)")
 # Regex for suspicious network calls.
 NETWORK_REGEX = re.compile(r"(?:fetch|XMLHttpRequest)\([^)]*?(https?:\/\/[^\s\"')]+)", re.IGNORECASE)
 
+# Regex for raw ips
+IP_REGEX = re.compile(
+    r"\b(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}"
+    r"(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\b"
+)
+
+# Regex for Crypto endpoints
+WALLET_REGEX = re.compile(
+    r"(?i)(metamask|phantom|coinbase(?:\s*wallet)?|trust\s*wallet|okx\s*wallet|"
+    r"bitget\s*wallet|solflare|unisat|alby|keplr|xdefi\s*wallet|temple\s*wallet)"
+)
+
 class Colors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -25,9 +37,9 @@ class Colors:
     BOLD = '\033[1m'
 
 
-def bytes_to_mb(size):
-    return round(size / (1024 * 1024), 2)
-
+def printIps(rawIP_calls):
+    for ip in rawIP_calls:
+            print(f"  {Colors.FAIL}Raw IP Detected: {ip}{Colors.ENDC}")
 
 def setup():
     bundle_path = input(f"{Colors.OKBLUE}Enter the path to your bundle.js (default: dist/bundle.js): {Colors.ENDC}").strip()
@@ -69,6 +81,28 @@ def scan_for_tokens(bundle_path, strict_mode=False):
         for t in tokens:
             print(f"  Detected prefix: {Colors.FAIL}{t}{Colors.ENDC}")
 
+    # Check for raw IPs.
+    rawIP_calls = IP_REGEX.findall(text)
+    if rawIP_calls:
+        if len(rawIP_calls) > 5:
+            display = input(f"\n{Colors.WARNING}{len(rawIP_calls)} Raw IP(s) were detected, would you like them all to be displayed? (y/n)\n{Colors.ENDC}")
+            print(f"{Colors.WARNING}Raw IP(s) found inside source.{Colors.ENDC}")
+            if display == "y":
+                printIps(rawIP_calls)
+
+        else:
+            printIps(rawIP_calls)
+
+
+    # Check if any crypto wallets are being accessed.
+    wallets_accessed = WALLET_REGEX.findall(text)
+    if wallets_accessed:
+        print(f"\n{Colors.WARNING}Crypto Wallets Mentioned!{Colors.ENDC}")
+        print(f"{Colors.WARNING}Crypto Wallets Mentioned!{Colors.ENDC}")
+        print(f"{Colors.WARNING}Crypto Wallets Mentioned!{Colors.ENDC}")
+        for wallet in wallets_accessed:
+            print(f"  {Colors.FAIL}Wallet Mentioned: {wallet}{Colors.ENDC}")
+
     # Check for suspicious calls.
     suspicious_calls = NETWORK_REGEX.findall(text)
     if suspicious_calls:
@@ -88,7 +122,7 @@ def scan_for_tokens(bundle_path, strict_mode=False):
                         print(f"{Colors.OKGREEN}Added {url} to whitelist.{Colors.ENDC}")
             else:
                 print(f"  {Colors.OKGREEN}Whitelisted URL allowed: {url}{Colors.ENDC}")
-
+        
     # Check for suspicious b64 strings.
     b64_strings = re.findall(r"[A-Za-z0-9+/=]{30,}", text)
     for s in b64_strings:
