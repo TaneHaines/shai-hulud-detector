@@ -12,16 +12,10 @@
   - Warns if the bundle grows too much between checks
 
 - Security Scanning
+  - Checks for access to Raw IP Addresses and Common Crypto Extensions.
   - Detects GitHub token prefixes (ghp_, gho_) in the bundle
   - Checks for suspicious network calls (fetch() / XMLHttpRequest) that may exfiltrate data
   - Scans for base64 or hex-encoded token prefixes
-
-- Persistent Configuration
-  - Remembers the last used bundle.js path in a file for convenience
-
-- Readable and Color-Coded Output
-  - Neutral colors for file info and bundle size
-  - Warnings in yellow, errors in red, successful checks in green  
 
 ---
 
